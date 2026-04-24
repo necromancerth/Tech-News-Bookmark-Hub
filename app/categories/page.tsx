@@ -17,6 +17,16 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { name: "", color: "#6366f1", description: "" };
 
+// --- HELPER COMPONENTS (DEFINED OUTSIDE TO PREVENT FOCUS LOSS) ---
+
+const Field = ({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) => (
+  <div>
+    <label className="block text-xs font-medium text-[#8b949e] mb-1.5">{label}</label>
+    {children}
+    {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+  </div>
+);
+
 function validateForm(form: FormState): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!form.name.trim()) errors.name = "Name is required";
@@ -26,6 +36,8 @@ function validateForm(form: FormState): Record<string, string> {
   if (form.description.length > 200) errors.description = "Max 200 characters";
   return errors;
 }
+
+// --- MAIN PAGE COMPONENT ---
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -49,15 +61,23 @@ export default function CategoriesPage() {
     try {
       const res = await fetch("/api/categories");
       if (res.ok) setCategories(await res.json());
-    } catch {}
-    finally { setLoading(false); }
+    } catch {
+      showToast("Failed to load categories", "error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleCreate = async () => {
     const errs = validateForm(form);
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
     setErrors({});
     setSubmitting(true);
     try {
@@ -67,8 +87,11 @@ export default function CategoriesPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error || "Failed to create", "error"); return; }
-      setCategories(prev => [...prev, data]);
+      if (!res.ok) {
+        showToast(data.error || "Failed to create", "error");
+        return;
+      }
+      setCategories((prev) => [...prev, data]);
       setForm(EMPTY_FORM);
       showToast("Category created!");
     } catch {
@@ -86,7 +109,10 @@ export default function CategoriesPage() {
 
   const handleUpdate = async (id: string) => {
     const errs = validateForm(editForm);
-    if (Object.keys(errs).length > 0) { setEditErrors(errs); return; }
+    if (Object.keys(errs).length > 0) {
+      setEditErrors(errs);
+      return;
+    }
     setEditErrors({});
     setSubmitting(true);
     try {
@@ -96,8 +122,11 @@ export default function CategoriesPage() {
         body: JSON.stringify(editForm),
       });
       const data = await res.json();
-      if (!res.ok) { showToast(data.error || "Failed to update", "error"); return; }
-      setCategories(prev => prev.map(c => c.id === id ? data : c));
+      if (!res.ok) {
+        showToast(data.error || "Failed to update", "error");
+        return;
+      }
+      setCategories((prev) => prev.map((c) => (c.id === id ? data : c)));
       setEditingId(null);
       showToast("Category updated!");
     } catch {
@@ -115,22 +144,17 @@ export default function CategoriesPage() {
     }
     try {
       const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
-      if (!res.ok) { showToast("Failed to delete", "error"); return; }
-      setCategories(prev => prev.filter(c => c.id !== id));
+      if (!res.ok) {
+        showToast("Failed to delete", "error");
+        return;
+      }
+      setCategories((prev) => prev.filter((c) => c.id !== id));
       setConfirmDelete(null);
       showToast("Category deleted");
     } catch {
       showToast("Network error", "error");
     }
   };
-
-  const Field = ({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) => (
-    <div>
-      <label className="block text-xs font-medium text-[#8b949e] mb-1.5">{label}</label>
-      {children}
-      {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
-    </div>
-  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -153,21 +177,32 @@ export default function CategoriesPage() {
                 <input
                   type="text"
                   value={form.name}
-                  onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setErrors(p => ({ ...p, name: "" })); }}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, name: e.target.value }));
+                    setErrors((p) => ({ ...p, name: "" }));
+                  }}
                   placeholder="e.g. AI, Frontend, Web3"
-                  maxLength={51}
-                  className={"w-full bg-[#0d1117] border rounded-lg px-3 py-2.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none transition-colors " + (errors.name ? "border-red-500/50" : "border-[#30363d] focus:border-orange-500/50")}
+                  maxLength={50}
+                  className={
+                    "w-full bg-[#0d1117] border rounded-lg px-3 py-2.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none transition-colors " +
+                    (errors.name ? "border-red-500/50" : "border-[#30363d] focus:border-orange-500/50")
+                  }
                 />
               </Field>
 
               <Field label="Color *" error={errors.color}>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {PRESET_COLORS.map(color => (
+                  {PRESET_COLORS.map((color) => (
                     <button
                       key={color}
                       type="button"
-                      onClick={() => setForm(p => ({ ...p, color }))}
-                      className={"w-7 h-7 rounded-full transition-all " + (form.color === color ? "ring-2 ring-white ring-offset-2 ring-offset-[#161b22] scale-110" : "hover:scale-110")}
+                      onClick={() => setForm((p) => ({ ...p, color }))}
+                      className={
+                        "w-7 h-7 rounded-full transition-all " +
+                        (form.color === color
+                          ? "ring-2 ring-white ring-offset-2 ring-offset-[#161b22] scale-110"
+                          : "hover:scale-110")
+                      }
                       style={{ backgroundColor: color }}
                     />
                   ))}
@@ -176,13 +211,13 @@ export default function CategoriesPage() {
                   <input
                     type="color"
                     value={form.color}
-                    onChange={e => setForm(p => ({ ...p, color: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))}
                     className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0"
                   />
                   <input
                     type="text"
                     value={form.color}
-                    onChange={e => setForm(p => ({ ...p, color: e.target.value }))}
+                    onChange={(e) => setForm((p) => ({ ...p, color: e.target.value }))}
                     placeholder="#6366f1"
                     className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] font-mono focus:outline-none focus:border-orange-500/50 transition-colors"
                   />
@@ -192,10 +227,13 @@ export default function CategoriesPage() {
               <Field label="Description" error={errors.description}>
                 <textarea
                   value={form.description}
-                  onChange={e => { setForm(p => ({ ...p, description: e.target.value })); setErrors(p => ({ ...p, description: "" })); }}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, description: e.target.value }));
+                    setErrors((p) => ({ ...p, description: "" }));
+                  }}
                   placeholder="Optional description..."
                   rows={2}
-                  maxLength={201}
+                  maxLength={200}
                   className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-orange-500/50 transition-colors resize-none"
                 />
                 <p className={"text-xs mt-1 text-right " + (form.description.length > 200 ? "text-red-400" : "text-[#484f58]")}>
@@ -221,8 +259,11 @@ export default function CategoriesPage() {
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="bg-[#161b22] border border-[#21262d] rounded-xl p-4 animate-pulse">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-[#21262d] rounded-full"/>
-                    <div className="flex-1"><div className="h-4 bg-[#21262d] rounded w-24 mb-1"/><div className="h-3 bg-[#21262d] rounded w-40"/></div>
+                    <div className="w-8 h-8 bg-[#21262d] rounded-full" />
+                    <div className="flex-1">
+                      <div className="h-4 bg-[#21262d] rounded w-24 mb-1" />
+                      <div className="h-3 bg-[#21262d] rounded w-40" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -240,52 +281,89 @@ export default function CategoriesPage() {
           {!loading && categories.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs text-[#484f58] mb-4">{categories.length} categories</p>
-              {categories.map(cat => (
+              {categories.map((cat) => (
                 <div key={cat.id} className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
                   {editingId === cat.id ? (
                     /* Edit form */
                     <div className="p-5 space-y-4">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white text-sm font-medium">Edit Category</span>
-                        <button onClick={() => setEditingId(null)} className="text-[#484f58] hover:text-white transition-colors text-lg">×</button>
+                        <button onClick={() => setEditingId(null)} className="text-[#484f58] hover:text-white transition-colors text-lg">
+                          ×
+                        </button>
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-[#8b949e] mb-1.5">Name *</label>
-                        <input type="text" value={editForm.name}
-                          onChange={e => { setEditForm(p => ({ ...p, name: e.target.value })); setEditErrors(p => ({ ...p, name: "" })); }}
-                          className={"w-full bg-[#0d1117] border rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none transition-colors " + (editErrors.name ? "border-red-500/50" : "border-[#30363d] focus:border-orange-500/50")}
+                      <Field label="Name *" error={editErrors.name}>
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => {
+                            setEditForm((p) => ({ ...p, name: e.target.value }));
+                            setEditErrors((p) => ({ ...p, name: "" }));
+                          }}
+                          className={
+                            "w-full bg-[#0d1117] border rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none transition-colors " +
+                            (editErrors.name ? "border-red-500/50" : "border-[#30363d] focus:border-orange-500/50")
+                          }
                         />
-                        {editErrors.name && <p className="text-red-400 text-xs mt-1">{editErrors.name}</p>}
-                      </div>
+                      </Field>
 
                       <div>
                         <label className="block text-xs text-[#8b949e] mb-1.5">Color</label>
                         <div className="flex flex-wrap gap-1.5 mb-2">
-                          {PRESET_COLORS.map(color => (
-                            <button key={color} type="button" onClick={() => setEditForm(p => ({ ...p, color }))}
-                              className={"w-6 h-6 rounded-full transition-all " + (editForm.color === color ? "ring-2 ring-white ring-offset-1 ring-offset-[#161b22] scale-110" : "hover:scale-110")}
-                              style={{ backgroundColor: color }} />
+                          {PRESET_COLORS.map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setEditForm((p) => ({ ...p, color }))}
+                              className={
+                                "w-6 h-6 rounded-full transition-all " +
+                                (editForm.color === color
+                                  ? "ring-2 ring-white ring-offset-1 ring-offset-[#161b22] scale-110"
+                                  : "hover:scale-110")
+                              }
+                              style={{ backgroundColor: color }}
+                            />
                           ))}
                         </div>
                         <div className="flex items-center gap-2">
-                          <input type="color" value={editForm.color} onChange={e => setEditForm(p => ({ ...p, color: e.target.value }))} className="w-8 h-8 rounded cursor-pointer bg-transparent border-0" />
-                          <input type="text" value={editForm.color} onChange={e => setEditForm(p => ({ ...p, color: e.target.value }))}
-                            className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-2 py-1.5 text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-orange-500/50" />
+                          <input
+                            type="color"
+                            value={editForm.color}
+                            onChange={(e) => setEditForm((p) => ({ ...p, color: e.target.value }))}
+                            className="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
+                          />
+                          <input
+                            type="text"
+                            value={editForm.color}
+                            onChange={(e) => setEditForm((p) => ({ ...p, color: e.target.value }))}
+                            className="flex-1 bg-[#0d1117] border border-[#30363d] rounded-lg px-2 py-1.5 text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-orange-500/50"
+                          />
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-[#8b949e] mb-1.5">Description</label>
-                        <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
-                          rows={2} maxLength={201}
-                          className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-orange-500/50 resize-none" />
-                        {editErrors.description && <p className="text-red-400 text-xs mt-1">{editErrors.description}</p>}
-                      </div>
+                      <Field label="Description" error={editErrors.description}>
+                        <textarea
+                          value={editForm.description}
+                          onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+                          rows={2}
+                          maxLength={200}
+                          className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-orange-500/50 resize-none"
+                        />
+                      </Field>
 
                       <div className="flex gap-2 pt-1">
-                        <button onClick={() => setEditingId(null)} className="flex-1 py-2 rounded-lg border border-[#30363d] text-[#8b949e] text-sm hover:text-white transition-colors">Cancel</button>
-                        <button onClick={() => handleUpdate(cat.id)} disabled={submitting} className="flex-1 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium transition-colors disabled:opacity-50">
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="flex-1 py-2 rounded-lg border border-[#30363d] text-[#8b949e] text-sm hover:text-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleUpdate(cat.id)}
+                          disabled={submitting}
+                          className="flex-1 py-2 rounded-lg bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                        >
                           {submitting ? "Saving..." : "Save"}
                         </button>
                       </div>
@@ -293,8 +371,10 @@ export default function CategoriesPage() {
                   ) : (
                     /* Display */
                     <div className="p-4 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
-                        style={{ backgroundColor: cat.color + "25", color: cat.color, border: `2px solid ${cat.color}40` }}>
+                      <div
+                        className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
+                        style={{ backgroundColor: cat.color + "25", color: cat.color, border: `2px solid ${cat.color}40` }}
+                      >
                         {cat.name.charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -307,12 +387,21 @@ export default function CategoriesPage() {
                         {cat.description && <p className="text-xs text-[#484f58] mt-0.5 truncate">{cat.description}</p>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <button onClick={() => startEdit(cat)}
-                          className="px-3 py-1.5 rounded-lg text-xs text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#484f58] transition-colors">
+                        <button
+                          onClick={() => startEdit(cat)}
+                          className="px-3 py-1.5 rounded-lg text-xs text-[#8b949e] border border-[#30363d] hover:text-white hover:border-[#484f58] transition-colors"
+                        >
                           ✏️ Edit
                         </button>
-                        <button onClick={() => handleDelete(cat.id)}
-                          className={"px-3 py-1.5 rounded-lg text-xs transition-colors " + (confirmDelete === cat.id ? "bg-red-500/10 text-red-400 border border-red-500/30" : "text-[#8b949e] border border-[#30363d] hover:text-red-400 hover:border-red-500/30")}>
+                        <button
+                          onClick={() => handleDelete(cat.id)}
+                          className={
+                            "px-3 py-1.5 rounded-lg text-xs transition-colors " +
+                            (confirmDelete === cat.id
+                              ? "bg-red-500/10 text-red-400 border border-red-500/30"
+                              : "text-[#8b949e] border border-[#30363d] hover:text-red-400 hover:border-red-500/30")
+                          }
+                        >
                           {confirmDelete === cat.id ? "⚠️ Confirm?" : "🗑️ Delete"}
                         </button>
                       </div>
@@ -326,7 +415,14 @@ export default function CategoriesPage() {
       </div>
 
       {toast && (
-        <div className={"fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-2 " + (toast.type === "success" ? "bg-green-500/10 border border-green-500/30 text-green-400" : "bg-red-500/10 border border-red-500/30 text-red-400")}>
+        <div
+          className={
+            "fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium flex items-center gap-2 " +
+            (toast.type === "success"
+              ? "bg-green-500/10 border border-green-500/30 text-green-400"
+              : "bg-red-500/10 border border-red-500/30 text-red-400")
+          }
+        >
           {toast.type === "success" ? "✓" : "✗"} {toast.msg}
         </div>
       )}
